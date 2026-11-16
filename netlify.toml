@@ -1,0 +1,26 @@
+[build]
+  publish = "site"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/enviar"
+  to = "/.netlify/functions/enviar"
+  status = 200
+
+[[redirects]]
+  from = "/api/formularios"
+  to = "/.netlify/functions/formularios"
+  status = 200
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

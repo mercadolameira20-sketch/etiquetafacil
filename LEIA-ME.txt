@@ -1,0 +1,6 @@
+EtiquetaFacil v2.0 - pasta pronta para o GitHub
+1) Crie um repositorio VAZIO no GitHub (sem README).
+2) Copie Setup.exe.p00, p01 e p02 para ESTA pasta.
+3) Duplo clique em ENVIAR-PARA-O-GITHUB.bat e cole o endereco do repositorio.
+4) No Netlify: Link repository -> main -> Publish directory: site -> Functions: netlify/functions.
+Opcional: variavel CHAVE_RECEPTOR no Netlify (mesma senha na engrenagem do Receptor).

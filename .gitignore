@@ -1,0 +1,4 @@
+node_modules/
+.netlify/
+Setup.exe.p0*
+*.bat

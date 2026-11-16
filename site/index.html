@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#c0392b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="EtiquetaFácil" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>EtiquetaFácil</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <!-- Leitura de códigos: leitor nativo (Android) ou Quagga2 + Html5-Qrcode (iPhone e outros).
+       Os arquivos ficam na pasta libs/, junto do index.html (não dependem de internet nem de CDN). -->
+  <script>
+    // Carrega as bibliotecas tentando, em ordem: pasta libs/, mesma pasta do index.html e, por último, a internet (CDN).
+    // Assim o app lê códigos mesmo que a pasta libs tenha ficado fora do envio para o servidor.
+    window.libsStatus = {};
+    window.libsPronto = (function () {
+      const V = '1.3.1'; // muda o endereço do arquivo e evita usar uma cópia antiga guardada no celular
+      function carregar(nome, global, urls) {
+        return new Promise(function (resolve) {
+          let i = 0;
+          (function proxima() {
+            if (window[global]) { window.libsStatus[nome] = 'ok'; return resolve(true); }
+            if (i >= urls.length) { window.libsStatus[nome] = 'não encontrada'; return resolve(false); }
+            const url = urls[i++];
+            const s = document.createElement('script');
+            s.src = url;
+            s.onload = function () { if (window[global]) { window.libsStatus[nome] = 'ok'; resolve(true); } else proxima(); };
+            s.onerror = proxima;
+            document.head.appendChild(s);
+          })();
+        });
+      }
+      return Promise.all([
+        carregar('Quagga2', 'Quagga', [
+          'libs/quagga.min.js?v=' + V,
+          'quagga.min.js?v=' + V,
+          'https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js'
+        ]),
+        carregar('Html5-Qrcode', 'Html5Qrcode', [
+          'libs/html5-qrcode.min.js?v=' + V,
+          'html5-qrcode.min.js?v=' + V,
+          'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'
+        ])
+      ]);
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --green: #c0392b;
+      --green-dark: #962d22;
+      --green-light: #fdecea;
+      --green-mid: #e04b3a;
+      --text: #1a1a1a;
+      --text2: #555;
+      --text3: #888;
+      --border: #e0e0e0;
+      --bg: #f7f9f8;
+      --white: #fff;
+      --red: #d63c3c;
+      --amber: #e8880a;
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--green);
+      color: white;
+      padding: env(safe-area-inset-top, 16px) 20px 20px;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-icon {
+      width: 56px; height: 56px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px;
+      flex-shrink: 0;
+    }
+    .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { font-size: 16px; opacity: 0.85; margin-top: 3px; }
+
+    /* MAIN CONTENT */
+    .main { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+
+    /* CARD */
+    .card {
+      background: var(--white);
+      border-radius: 18px;
+      border: 1.5px solid var(--border);
+      padding: 22px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title span { font-size: 22px; }
+
+    /* SCAN BUTTON */
+    .btn-scan {
+      width: 100%;
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 18px 20px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.15s;
+      -webkit-appearance: none;
+      box-shadow: 0 4px 14px rgba(192,57,43,0.3);
+      min-height: 62px;
+    }
+    .btn-scan:active { background: var(--green-dark); transform: scale(0.98); }
+    .btn-scan svg { width: 24px; height: 24px; }
+
+    /* CAMERA AREA */
+    #camera-section { display: none; }
+    #camera-section.active { display: block; }
+
+    .camera-wrapper {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .camera-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .scan-frame {
+      width: 72%;
+      aspect-ratio: 2.2/1;
+      border-radius: 6px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    /* Animated green corners instead of full border */
+    .scan-corner {
+      position: absolute;
+      width: 22px; height: 22px;
+      border-color: #4dff91;
+      border-style: solid;
+    }
+    .scan-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .scan-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .scan-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .scan-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    .scan-frame.detected .scan-corner { border-color: #FFD600; animation: pulse-corner 0.3s ease; }
+    @keyframes pulse-corner { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .scan-line {
+      position: absolute;
+      left: 4px; right: 4px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #4dff91, transparent);
+      animation: scanMove 1.6s ease-in-out infinite;
+      top: 30%;
+    }
+    @keyframes scanMove {
+      0%, 100% { top: 10%; opacity: 0.7; }
+      50% { top: 85%; opacity: 1; }
+    }
+
+    /* Top control bar */
+    .cam-top-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+      pointer-events: auto;
+    }
+    .cam-btn {
+      background: rgba(255,255,255,0.18);
+      border: none;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      font-size: 17px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+      color: white;
+    }
+    .cam-btn.active { background: rgba(255,220,0,0.4); }
+    .cam-btn.hidden { visibility: hidden; }
+    .cam-status {
+      font-size: 12px;
+      color: rgba(255,255,255,0.9);
+      background: rgba(0,0,0,0.35);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+
+    .scan-hint-bottom {
+      position: absolute;
+      bottom: 10px;
+      left: 0; right: 0;
+      text-align: center;
+      color: rgba(255,255,255,0.85);
+      font-size: 12px;
+      padding: 0 20px;
+      pointer-events: none;
+    }
+
+    .btn-cancel {
+      width: 100%;
+      margin-top: 10px;
+      background: none;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      color: var(--red);
+      cursor: pointer;
+      font-weight: 700;
+      min-height: 52px;
+    }
+
+    /* TELA DO PRODUTO: só o código de barras, bem grande e copiável */
+    #product-section { display: none; }
+    #product-section.active { display: flex; flex-direction: column; gap: 12px; }
+
+    .code-card { padding: 14px 14px 12px; }
+    .code-card .card-title { margin-bottom: 8px; font-size: 14px; }
+    .code-card .card-title span { font-size: 18px; }
+    .code-big {
+      display: block;
+      width: 100%;
+      background: var(--bg);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 14px 6px;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(22px, 8vw, 40px);
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text);
+      text-align: center;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-appearance: none;
+      -webkit-user-select: all;
+      user-select: all;
+    }
+    .code-big:active { background: var(--green-light); border-color: var(--green); }
+    .code-hint { margin-top: 6px; text-align: center; font-size: 12px; color: var(--text3); }
+
+    /* OPTIONS (versão compacta na vertical) */
+    .card-compact { padding: 14px; }
+    .card-compact .card-title { margin-bottom: 10px; font-size: 14px; }
+    .card-compact .card-title span { font-size: 18px; }
+
+    .options-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .option-item {
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .option-item.selected {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+    .option-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      min-height: 46px;
+    }
+    .option-radio {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .option-item.selected .option-radio {
+      border-color: var(--green);
+      background: var(--green);
+    }
+    .option-item.selected .option-radio::after {
+      content: '';
+      width: 8px; height: 8px;
+      background: white;
+      border-radius: 50%;
+    }
+    .option-icon { font-size: 22px; flex-shrink: 0; }
+    .option-text { flex: 1; min-width: 0; }
+    .option-text strong { font-size: 15px; display: block; font-weight: 700; line-height: 1.25; }
+    .option-text span {
+      display: block;
+      font-size: 12px;
+      color: var(--text3);
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Área de campos extras (preço, custo, observações) — aparece só na opção selecionada */
+    .extras {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px 12px 10px;
+      border-top: 1.5px solid var(--border);
+    }
+    .option-item.selected .extras {
+      display: flex;
+      border-top-color: rgba(192,57,43,0.25);
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .price-prefix {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+    .price-input {
+      flex: 1;
+      min-width: 0;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      background: var(--white);
+      -webkit-appearance: none;
+      outline: none;
+    }
+    .price-input:focus { border-color: var(--green); }
+
+    /* Campo de texto "Custo" (mesmo estilo do campo de observações, em uma linha) */
+    .custo-input {
+      flex: 1;
+      min-width: 0;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--white);
+      font-family: inherit;
+      -webkit-appearance: none;
+      outline: none;
+    }
+    .custo-input:focus { border-color: var(--green); }
+    .custo-input.erro {
+      border-color: var(--red);
+      background: #fff3f3;
+      animation: tremer 0.35s ease;
+    }
+    @keyframes tremer {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+
+    /* Observações */
+    .notes-input {
+      width: 100%;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--white);
+      resize: none;
+      height: 54px;
+      font-family: inherit;
+      outline: none;
+    }
+    .notes-input:focus { border-color: var(--green); }
+
+    /* SEND BUTTON */
+    .btn-send {
+      width: 100%;
+      background: #c0392b;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.15s, opacity 0.15s;
+      -webkit-appearance: none;
+      box-shadow: 0 4px 14px rgba(192,57,43,0.35);
+      min-height: 58px;
+    }
+    .btn-send:active { background: #a93226; transform: scale(0.98); }
+    .btn-send svg { width: 22px; height: 22px; }
+    /* Travado: continua tocável (para mostrar o aviso), mas visualmente bloqueado */
+    .btn-send.locked {
+      background: #9aa0a6;
+      box-shadow: none;
+      opacity: 0.7;
+    }
+    .btn-send.locked:active { background: #9aa0a6; transform: none; }
+    .send-hint {
+      display: none;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--red);
+    }
+
+    .btn-rescan {
+      width: 100%;
+      background: none;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      color: var(--text2);
+      cursor: pointer;
+      font-weight: 700;
+      min-height: 52px;
+    }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+      left: 50%; transform: translateX(-50%);
+      background: #1a1a1a;
+      color: white;
+      padding: 14px 22px;
+      border-radius: 22px;
+      font-size: 18px;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      white-space: normal;
+      text-align: center;
+      max-width: 90vw;
+      z-index: 99;
+    }
+    .toast.show { opacity: 1; }
+
+    /* MANUAL INPUT */
+    .manual-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .manual-input {
+      flex: 1;
+      border: 2.5px solid var(--border);
+      border-radius: 12px;
+      min-width: 0;
+      padding: 12px 10px;
+      font-size: 18px;
+      color: var(--text);
+      background: var(--white);
+      outline: none;
+      -webkit-appearance: none;
+      font-family: 'Courier New', monospace;
+      min-height: 60px;
+    }
+    .manual-input:focus { border-color: var(--green); }
+    .btn-manual {
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 14px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 60px;
+    }
+
+    /* BOTÃO DE CONFIGURAÇÃO (cabeçalho) */
+    .btn-config {
+      margin-left: auto;
+      width: 48px; height: 48px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-appearance: none;
+    }
+    .btn-config:active { background: rgba(255,255,255,0.35); }
+
+    /* BOTÃO DE BUSCA POR VOZ (segurar para falar) */
+    .btn-voice {
+      width: 60px;
+      min-height: 60px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 12px;
+      background: var(--green-light);
+      color: var(--green-dark);
+      border: 2px solid rgba(192,57,43,0.35);
+      font-size: 26px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-appearance: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+    .btn-voice.listening {
+      background: var(--red);
+      border-color: var(--red);
+      color: white;
+      animation: pulsar 1s ease-in-out infinite;
+    }
+    @keyframes pulsar {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(214,60,60,0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(214,60,60,0); }
+    }
+    .voice-hint {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--text3);
+      text-align: center;
+    }
+    .voice-hint.listening { color: var(--red); font-weight: 700; }
+
+    /* JANELA DE CONFIGURAÇÃO */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal.show { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: 18px;
+      padding: 22px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .modal-box h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .modal-box p { font-size: 14px; color: var(--text2); margin-bottom: 14px; }
+    .modal-label { font-size: 13px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
+    .modal-input {
+      width: 100%;
+      margin-top: 6px;
+      border: 2.5px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 20px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .modal-input:focus { border-color: var(--green); }
+    .modal-atual { font-size: 13px; color: var(--text3); margin-top: 8px; min-height: 18px; }
+    .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-btns button {
+      flex: 1;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 52px;
+    }
+    .btn-modal-cancel { background: none; border: 2px solid var(--border); color: var(--text2); }
+    .btn-modal-save { background: var(--green); border: none; color: white; }
+    .cfg-extra { margin-top: 18px; padding-top: 14px; border-top: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .btn-extra { background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 13px; font-size: 16px; font-weight: 700; cursor: pointer; color: var(--text2); min-height: 48px; }
+    .btn-extra:active { background: #f2f2f2; }
+    .foto-box { display:flex; flex-direction:column; gap:8px; }
+    .btn-foto { background:#fff; border:2px dashed var(--border); border-radius:14px; padding:12px; font-size:16px; font-weight:700; color:var(--text2); cursor:pointer; min-height:50px; }
+    .foto-prev { display:flex; gap:12px; align-items:center; background:#fff; border:2px solid var(--border); border-radius:14px; padding:8px; }
+    .foto-prev img { width:96px; height:96px; object-fit:cover; border-radius:10px; background:#eee; }
+    .foto-info { display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--text3); font-weight:600; }
+    .foto-info button { background:none; border:2px solid var(--border); border-radius:10px; padding:8px 12px; font-weight:700; color:var(--red); cursor:pointer; }
+    .fila-aviso { text-align:center; font-size:13px; font-weight:700; color:#b9770e; background:#fef5e7; border-radius:10px; padding:8px; display:none; }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      padding: 14px 18px calc(env(safe-area-inset-bottom, 14px) + 14px);
+      font-size: 14px;
+      color: var(--text3);
+    }
+
+    /* INSTALL BANNER */
+    .install-banner {
+      background: var(--green-light);
+      border: 1.5px solid rgba(192,57,43,0.25);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 17px;
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+    .install-banner-icon { font-size: 32px; flex-shrink: 0; }
+    .install-banner button {
+      margin-left: auto;
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .install-banner.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">🏷️</div>
+    <div>
+      <h1>EtiquetaFácil</h1>
+      <p>MercadoLameira • Scanner de produtos</p>
+    </div>
+    <button class="btn-config" onclick="openConfig()" aria-label="Configurações" title="Configurações">⚙️</button>
+  </div>
+
+  <div class="main">
+
+    <!-- INSTALL PROMPT -->
+    <div class="install-banner hidden" id="install-banner">
+      <div class="install-banner-icon">📲</div>
+      <div>Adicione à tela inicial para usar sem internet</div>
+      <button onclick="installApp()">Instalar</button>
+    </div>
+
+    <!-- Área oculta usada pelo Html5-Qrcode para decodificar quadros (nada aparece na tela) -->
+    <div id="h5q-hidden" style="display:none;"></div>
+
+    <!-- SCAN SECTION -->
+    <div id="scan-section">
+      <button class="btn-scan" onclick="startScan()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <line x1="7" y1="12" x2="7" y2="12.01"/><line x1="17" y1="12" x2="17" y2="12.01"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+        </svg>
+        Escanear código de barras
+      </button>
+
+      <div class="card" style="margin-top:14px; padding:16px;">
+        <div class="card-title"><span>⌨️</span> Ou digitar o código</div>
+        <div class="manual-row">
+          <input class="manual-input" id="manual-code" type="text" inputmode="numeric"
+            placeholder="Ex: 7891234567890" maxlength="20" />
+          <button class="btn-voice" id="btn-voice" type="button" aria-label="Segure para buscar por voz" title="Segure para falar">🎤</button>
+          <button class="btn-manual" onclick="manualSearch()">Buscar</button>
+        </div>
+        <div class="voice-hint" id="voice-hint">🎤 Segure o botão, fale os números do código e solte</div>
+      </div>
+    </div>
+
+    <!-- CAMERA SECTION -->
+    <div id="camera-section">
+      <div class="camera-wrapper">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="scan-canvas" style="display:none;"></canvas>
+        <div class="camera-overlay">
+          <div class="scan-frame" id="scan-frame">
+            <div class="scan-line"></div>
+            <div class="scan-corner tl"></div>
+            <div class="scan-corner tr"></div>
+            <div class="scan-corner bl"></div>
+            <div class="scan-corner br"></div>
+          </div>
+        </div>
+        <div class="cam-top-bar">
+          <button class="cam-btn" id="torch-btn" onclick="toggleTorch()" title="Lanterna">💡</button>
+          <div class="cam-status" id="cam-status">📷 Iniciando câmera...</div>
+          <button class="cam-btn" id="flip-btn" onclick="flipCamera()" title="Trocar câmera">🔄</button>
+        </div>
+        <div class="scan-hint-bottom" id="scan-hint-bottom">Aponte o código de barras para a área</div>
+      </div>
+      <button class="btn-cancel" onclick="stopScan()">✕ Cancelar</button>
+    </div>
+
+    <!-- PRODUCT + OPTIONS SECTION -->
+    <div id="product-section">
+
+      <!-- Código de barras (grande e copiável) -->
+      <div class="card code-card" id="product-card">
+        <div class="card-title"><span>🔢</span> Código de barras</div>
+        <button class="code-big" id="code-big" type="button" onclick="copiarCodigo()" title="Toque para copiar">—</button>
+        <div class="code-hint">Toque no número para copiar</div>
+      </div>
+
+      <!-- Opções -->
+      <div class="card card-compact" id="options-card" style="display:none;">
+        <div class="card-title"><span>✅</span> O que precisa fazer?</div>
+        <div class="options-list">
+
+          <!-- Opção 1: Mudar preço -->
+          <div class="option-item" id="opt-1" onclick="selectOption(1)">
+            <div class="option-label">
+              <div class="option-radio" id="radio-1"></div>
+              <div class="option-icon">💰</div>
+              <div class="option-text">
+                <strong>Mudar preço</strong>
+                <span>Atualizar somente o preço no sistema</span>
+              </div>
+            </div>
+            <div class="extras">
+              <div class="field-row">
+                <span class="price-prefix">R$</span>
+                <input class="price-input" id="price-1" type="number" inputmode="decimal"
+                  placeholder="0,00" step="0.01" min="0" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Opção 2: Mudar preço + tirar etiqueta -->
+          <div class="option-item" id="opt-2" onclick="selectOption(2)">
+            <div class="option-label">
+              <div class="option-radio" id="radio-2"></div>
+              <div class="option-icon">🏷️</div>
+              <div class="option-text">
+                <strong>Mudar preço + tirar etiqueta</strong>
+                <span>Atualizar preço e reimprimir etiqueta</span>
+              </div>
+            </div>
+            <div class="extras">
+              <div class="field-row">
+                <span class="price-prefix">R$</span>
+                <input class="price-input" id="price-2" type="number" inputmode="decimal"
+                  placeholder="0,00" step="0.01" min="0" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Opção 3: Tirar etiqueta -->
+          <div class="option-item" id="opt-3" onclick="selectOption(3)">
+            <div class="option-label">
+              <div class="option-radio" id="radio-3"></div>
+              <div class="option-icon">🖨️</div>
+              <div class="option-text">
+                <strong>Tirar etiqueta</strong>
+                <span>Reimprimir etiqueta sem mudar preço</span>
+              </div>
+            </div>
+            <div class="extras">
+              <textarea class="notes-input" id="notes-3"
+                placeholder="Observações extras (opcional)..." onclick="event.stopPropagation()" onfocus="event.stopPropagation()"></textarea>
+            </div>
+          </div>
+
+          <!-- Opção 4: Cadastrar produto (Custo obrigatório) -->
+          <div class="option-item" id="opt-4" onclick="selectOption(4)">
+            <div class="option-label">
+              <div class="option-radio" id="radio-4"></div>
+              <div class="option-icon">➕</div>
+              <div class="option-text">
+                <strong>Cadastrar produto</strong>
+                <span>Novo produto no sistema</span>
+              </div>
+            </div>
+            <div class="extras">
+              <div class="field-row">
+                <span class="price-prefix">R$</span>
+                <input class="price-input" id="price-4" type="number" inputmode="decimal"
+                  placeholder="0,00" step="0.01" min="0" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+              <div class="field-row">
+                <span class="price-prefix">Custo</span>
+                <input class="custo-input" id="custo-4" type="text" inputmode="decimal"
+                  placeholder="Obrigatório" autocomplete="off"
+                  oninput="this.classList.remove('erro'); atualizarTravaEnvio()"
+                  onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+              <textarea class="notes-input" id="notes-4"
+                placeholder="Observações extras (opcional)..." onclick="event.stopPropagation()" onfocus="event.stopPropagation()"></textarea>
+            </div>
+          </div>
+
+          <!-- Opção 5: Cadastrar produto + etiqueta (Custo obrigatório) -->
+          <div class="option-item" id="opt-5" onclick="selectOption(5)">
+            <div class="option-label">
+              <div class="option-radio" id="radio-5"></div>
+              <div class="option-icon">🏷️➕</div>
+              <div class="option-text">
+                <strong>Cadastrar produto + etiqueta</strong>
+                <span>Novo produto e imprimir etiqueta</span>
+              </div>
+            </div>
+            <div class="extras">
+              <div class="field-row">
+                <span class="price-prefix">R$</span>
+                <input class="price-input" id="price-5" type="number" inputmode="decimal"
+                  placeholder="0,00" step="0.01" min="0" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+              <div class="field-row">
+                <span class="price-prefix">Custo</span>
+                <input class="custo-input" id="custo-5" type="text" inputmode="decimal"
+                  placeholder="Obrigatório" autocomplete="off"
+                  oninput="this.classList.remove('erro'); atualizarTravaEnvio()"
+                  onclick="event.stopPropagation()" onfocus="event.stopPropagation()" />
+              </div>
+              <textarea class="notes-input" id="notes-5"
+                placeholder="Observações extras (opcional)..." onclick="event.stopPropagation()" onfocus="event.stopPropagation()"></textarea>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Send Button -->
+      <div id="send-section" style="display:none; flex-direction:column; gap:8px;">
+        <button class="btn-send" id="btn-send" onclick="enviarFormulario()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+          <span id="btn-send-txt">Enviar formulário</span>
+        </button>
+        <div class="foto-box">
+          <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoEscolhida(this)">
+          <button type="button" class="btn-foto" id="btn-foto" onclick="document.getElementById('foto-input').click()">📷 Tirar foto do produto (opcional)</button>
+          <div class="foto-prev" id="foto-prev" style="display:none">
+            <img id="foto-img" alt="Foto do produto">
+            <div class="foto-info"><span id="foto-kb"></span><button type="button" onclick="removerFoto()">✕ Remover</button></div>
+          </div>
+        </div>
+        <div class="fila-aviso" id="fila-aviso"></div>
+        <div class="send-hint" id="send-hint">🔒 Digite o custo do produto para liberar o envio</div>
+        <button class="btn-rescan" onclick="resetAll()">↩ Escanear outro produto</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="footer">EtiquetaFácil v2.0 • MercadoLameira</div>
+
+  <!-- JANELA DE CONFIGURAÇÃO -->
+  <div class="modal" id="config-modal" onclick="if(event.target===this) closeConfig()">
+    <div class="modal-box">
+      <h2>⚙️ Configurações</h2>
+      <p>Seu nome aparece no topo de cada formulário enviado.</p>
+      <label class="modal-label" for="cfg-nome">Nome de usuário</label>
+      <input class="modal-input" id="cfg-nome" type="text" maxlength="30" placeholder="Ex.: João" autocomplete="off" style="font-family:inherit;font-size:18px" />
+      <div class="modal-atual" id="cfg-status"></div>
+      <div class="modal-btns">
+        <button class="btn-modal-cancel" type="button" onclick="closeConfig()">Cancelar</button>
+        <button class="btn-modal-save" type="button" onclick="saveConfig()">Salvar</button>
+      </div>
+      <div class="cfg-extra">
+        <button type="button" class="btn-extra" id="btn-instalar" onclick="installApp()">📲 Instalar app</button>
+        <button type="button" class="btn-extra" onclick="baixarSetup()">💻 Baixar Setup (Windows)</button>
+        <div class="modal-atual" id="cfg-instalar-ajuda"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOME OBRIGATÓRIO (primeiro acesso) -->
+  <div class="modal show" id="nome-modal" style="z-index:200">
+    <div class="modal-box">
+      <h2>👋 Quem é você?</h2>
+      <p>Digite seu nome para começar. Ele vai aparecer nos formulários que você enviar.</p>
+      <input class="modal-input" id="nome-inicial" type="text" maxlength="30" placeholder="Seu nome" autocomplete="off" style="font-family:inherit;font-size:20px" />
+      <div class="modal-btns">
+        <button class="btn-modal-save" type="button" onclick="salvarNomeInicial()">Continuar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ── STATE ──────────────────────────────────────────────────
+    let currentCode = '';
+    let selectedOption = 0;
+    let codeReader = null;
+    let scanning = false;
+
+    // ── PWA INSTALL ────────────────────────────────────────────
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      try { atualizarAjudaInstalar(); } catch (_) {}
+      document.getElementById('install-banner').classList.remove('hidden');
+    });
+
+    function installApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+          document.getElementById('install-banner').classList.add('hidden');
+          closeConfig();
+        });
+      } else if (jaInstalado()) {
+        showToast('✅ O app já está instalado', 2500);
+      } else if (ehIOS()) {
+        showToast('iPhone: Compartilhar (□↑) → Adicionar à Tela de Início', 5000);
+      } else {
+        showToast('Abra o menu do navegador (⋮) e escolha "Instalar app"', 5000);
+      }
+    }
+
+    // ── CAMERA ENGINE ──────────────────────────────────────────
+    let videoStream = null;
+    let torchOn = false;
+    let scanLoop = null;
+    let codeConfirm = {}; // multi-frame confirmation map
+    let currentFacingMode = 'environment';
+    let allVideoDevices = [];
+    let currentDeviceIdx = 0;
+    let useNativeDetector = false;
+    let nativeDetector = null;
+    let h5q = null;      // instância do Html5-Qrcode (criada na primeira leitura)
+    let quadro = 0;      // contador de quadros, para alternar os leitores
+
+    // Detect if BarcodeDetector API is available (Chrome Android, Samsung etc.)
+    if ('BarcodeDetector' in window) {
+      BarcodeDetector.getSupportedFormats().then(fmts => {
+        nativeDetector = new BarcodeDetector({ formats: fmts });
+        useNativeDetector = true;
+      }).catch(() => {});
+    }
+
+    // ── LEITORES DE CÓDIGO DE BARRAS ───────────────────────────
+    // No Android o leitor nativo do navegador (BarcodeDetector) resolve sozinho.
+    // No iPhone ele não existe, então cada quadro da câmera é lido por Quagga2 ou Html5-Qrcode (alternando).
+
+    // Quagga2: devolve o texto lido ou null
+    function decodeQuagga(canvas) {
+      return new Promise((resolve) => {
+        if (!window.Quagga) return resolve(null);
+        let feito = false;
+        const fim = (v) => { if (!feito) { feito = true; resolve(v); } };
+        setTimeout(() => fim(null), 4000); // segurança: nunca trava o laço da câmera
+        try {
+          Quagga.decodeSingle({
+            src: canvas.toDataURL('image/jpeg', 0.92),
+            numOfWorkers: 0,
+            inputStream: { size: Math.min(canvas.width, 1280), singleChannel: false },
+            locate: true,
+            locator: { patchSize: 'medium', halfSample: true },
+            decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] }
+          }, (res) => {
+            fim(res && res.codeResult && res.codeResult.code ? String(res.codeResult.code) : null);
+          });
+        } catch (e) { fim(null); }
+      });
+    }
+
+    // Deixa o quadro só em preto e branco, decidindo pixel a pixel pela vizinhança.
+    // O decodificador do Html5-Qrcode (ZXing) erra o limiar de preto/branco quando o fundo não é branco
+    // ou a luz é irregular; com o quadro já binarizado ele lê normalmente.
+    let binCanvas = null, binGray = null, binInt = null;
+    function binarizarQuadro(src) {
+      const w = src.width, h = src.height;
+      const d = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+      if (!binGray || binGray.length !== w * h) {
+        binGray = new Uint8Array(w * h);
+        binInt = new Uint32Array((w + 1) * (h + 1));
+      }
+      const g = binGray, I = binInt, W1 = w + 1;
+      for (let i = 0, p = 0; i < g.length; i++, p += 4) g[i] = (d[p] * 77 + d[p + 1] * 150 + d[p + 2] * 29) >> 8;
+      // Imagem integral: permite somar qualquer janela de pixels de uma vez
+      for (let y = 0; y < h; y++) {
+        let lin = 0;
+        for (let x = 0; x < w; x++) { lin += g[y * w + x]; I[(y + 1) * W1 + x + 1] = I[y * W1 + x + 1] + lin; }
+      }
+      if (!binCanvas) binCanvas = document.createElement('canvas');
+      binCanvas.width = w; binCanvas.height = h;
+      const oc = binCanvas.getContext('2d');
+      const od = oc.createImageData(w, h);
+      const R = Math.max(8, w >> 4); // metade da janela de comparação
+      for (let y = 0; y < h; y++) {
+        const y1 = Math.max(0, y - R), y2 = Math.min(h - 1, y + R);
+        for (let x = 0; x < w; x++) {
+          const x1 = Math.max(0, x - R), x2 = Math.min(w - 1, x + R);
+          const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+          const soma = I[(y2 + 1) * W1 + x2 + 1] - I[y1 * W1 + x2 + 1] - I[(y2 + 1) * W1 + x1] + I[y1 * W1 + x1];
+          // Preto se for pelo menos 15% mais escuro que a média da vizinhança
+          const v = g[y * w + x] * area < soma * 0.85 ? 0 : 255;
+          const o = (y * w + x) * 4;
+          od.data[o] = od.data[o + 1] = od.data[o + 2] = v;
+          od.data[o + 3] = 255;
+        }
+      }
+      oc.putImageData(od, 0, 0);
+      return binCanvas;
+    }
+
+    // Html5-Qrcode: devolve o texto lido ou null
+    async function decodeHtml5(canvas) {
+      if (!window.Html5Qrcode) return null;
+      try {
+        if (!h5q) {
+          const F = window.Html5QrcodeSupportedFormats;
+          h5q = new Html5Qrcode('h5q-hidden', {
+            formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF],
+            useBarCodeDetectorIfSupported: false, // sempre o decodificador próprio da biblioteca
+            verbose: false
+          });
+        }
+        const bin = binarizarQuadro(canvas);
+        const blob = await new Promise((r) => bin.toBlob(r, 'image/jpeg', 0.92));
+        if (!blob) return null;
+        const arquivo = new File([blob], 'quadro.jpg', { type: 'image/jpeg' });
+        const texto = await h5q.scanFile(arquivo, false);
+        return texto ? String(texto) : null;
+      } catch (e) {
+        return null; // nenhum código neste quadro
+      }
+    }
+
+    // UPC-A lido como EAN-13 com zero na frente (13 dígitos começando em 0) volta a ter os 12 dígitos impressos na embalagem
+    function normalizarLeitura(code) {
+      return /^0\d{12}$/.test(code) ? code.slice(1) : code;
+    }
+
+    function nomeLeitor() {
+      if (useNativeDetector && nativeDetector) return 'leitor nativo';
+      const nomes = [];
+      if (window.Quagga) nomes.push('Quagga2');
+      if (window.Html5Qrcode) nomes.push('Html5-Qrcode');
+      return nomes.join(' + ');
+    }
+
+    // Pick the best camera: prefer back camera with highest resolution
+    async function getBestCamera() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      allVideoDevices = devices.filter(d => d.kind === 'videoinput');
+
+      // Try to find telephoto/wide back cameras and pick best
+      // First try: ultra-high-res constraint for best camera
+      const backCams = allVideoDevices.filter(d =>
+        d.label.toLowerCase().includes('back') ||
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('environment') ||
+        d.label === '' // unlabeled before permission
+      );
+
+      return backCams.length > 0 ? backCams[0].deviceId : undefined;
+    }
+
+    async function startScan() {
+      document.getElementById('scan-section').style.display = 'none';
+      document.getElementById('camera-section').classList.add('active');
+      setCamStatus('📷 Iniciando...');
+      await openCamera();
+    }
+
+    async function openCamera(deviceId) {
+      try {
+        // Stop any existing stream
+        if (videoStream) {
+          videoStream.getTracks().forEach(t => t.stop());
+          videoStream = null;
+        }
+
+        // Build optimal constraints
+        // Ask for highest possible resolution so barcode library has more pixels
+        const constraints = {
+          video: {
+            facingMode: deviceId ? undefined : { ideal: 'environment' },
+            deviceId: deviceId ? { exact: deviceId } : undefined,
+            width:  { ideal: 1920, min: 640 },
+            height: { ideal: 1080, min: 480 },
+            frameRate: { ideal: 30, min: 15 },
+            // Advanced: continuous autofocus
+            advanced: [
+              { focusMode: 'continuous' },
+              { torch: false }
+            ]
+          }
+        };
+
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        const video = document.getElementById('video');
+        video.srcObject = videoStream;
+        await video.play();
+
+        // Try to apply continuous autofocus via ImageCapture API
+        const track = videoStream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        const settings = track.getSettings ? track.getSettings() : {};
+
+        // Update torch button visibility
+        const torchBtn = document.getElementById('torch-btn');
+        if (caps.torch) {
+          torchBtn.classList.remove('hidden');
+        } else {
+          torchBtn.classList.add('hidden');
+        }
+
+        // Try continuous focus
+        if (caps.focusMode && caps.focusMode.includes('continuous')) {
+          try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e) {}
+        }
+
+        // Show camera info
+        const label = settings.width ? `${settings.width}×${settings.height}` : 'Câmera pronta';
+        await window.libsPronto; // bibliotecas carregam em paralelo com a câmera; aqui só confirma que terminaram
+        const leitor = nomeLeitor();
+        if (leitor) {
+          setCamStatus(`✅ ${label} • ${leitor}`);
+        } else {
+          const detalhe = Object.keys(window.libsStatus).map(k => `${k}: ${window.libsStatus[k]}`).join(' • ');
+          setCamStatus('❌ Leitor não carregou');
+          showToast(`Leitor de códigos não carregou (${detalhe}). Confira se a pasta libs foi enviada`, 6000);
+        }
+
+        // Show flip button only if multiple cameras
+        if (allVideoDevices.length === 0) await getBestCamera();
+        document.getElementById('flip-btn').style.visibility = allVideoDevices.length > 1 ? 'visible' : 'hidden';
+
+        // Start decode loop
+        scanning = true;
+        codeConfirm = {};
+        startDecodeLoop();
+
+      } catch (e) {
+        console.error('Camera error:', e);
+        setCamStatus('❌ Sem acesso à câmera');
+        showToast('Permita o acesso à câmera nas configurações do navegador');
+      }
+    }
+
+    function setCamStatus(txt) {
+      document.getElementById('cam-status').textContent = txt;
+    }
+
+    function startDecodeLoop() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('scan-canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      async function loop() {
+        if (!scanning || video.readyState < 2) {
+          if (scanning) scanLoop = requestAnimationFrame(loop);
+          return;
+        }
+
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+
+        // Crop to scan zone (center 70% width, center 45% height)
+        // This reduces the area to scan → much faster detection
+        const cropW = Math.floor(vw * 0.75);
+        const cropH = Math.floor(vh * 0.50);
+        const cropX = Math.floor((vw - cropW) / 2);
+        const cropY = Math.floor((vh - cropH) / 2);
+
+        // Reduz para no máximo 1280 px de largura: leitura mais rápida no iPhone sem perder as barras
+        const escala = Math.min(1, 1280 / cropW);
+        const outW = Math.round(cropW * escala);
+        const outH = Math.round(cropH * escala);
+        canvas.width  = outW;
+        canvas.height = outH;
+        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+
+        let code = null;
+
+        quadro++;
+        if (useNativeDetector && nativeDetector) {
+          // Android: leitor nativo do navegador (o mais rápido)
+          try {
+            const results = await nativeDetector.detect(canvas);
+            if (results.length > 0) code = results[0].rawValue;
+          } catch(e) { useNativeDetector = false; }
+        } else {
+          // iPhone e outros: alterna Quagga2 e Html5-Qrcode a cada quadro
+          const usaQuagga = !!window.Quagga && (quadro % 2 === 0 || !window.Html5Qrcode);
+          code = usaQuagga ? await decodeQuagga(canvas) : await decodeHtml5(canvas);
+          if (code) code = normalizarLeitura(code);
+        }
+
+        // O usuário pode ter cancelado enquanto o leitor trabalhava
+        if (!scanning) return;
+
+        // Multi-frame confirmation: require same code 2× to avoid false positives
+        if (code) {
+          codeConfirm[code] = (codeConfirm[code] || 0) + 1;
+          // Flash the frame
+          document.getElementById('scan-frame').classList.add('detected');
+          setTimeout(() => document.getElementById('scan-frame').classList.remove('detected'), 200);
+
+          if (codeConfirm[code] >= 2) {
+            scanning = false;
+            cancelAnimationFrame(scanLoop);
+            // Haptic feedback if available
+            if (navigator.vibrate) navigator.vibrate([60, 30, 60]);
+            stopScan();
+            handleCode(code);
+            return;
+          }
+        }
+
+        // Adaptive: run faster when nothing found, slower when confirming
+        const delay = code ? 80 : 0;
+        if (delay > 0) {
+          setTimeout(() => { if (scanning) scanLoop = requestAnimationFrame(loop); }, delay);
+        } else {
+          if (scanning) scanLoop = requestAnimationFrame(loop);
+        }
+      }
+
+      scanLoop = requestAnimationFrame(loop);
+    }
+
+    function stopScan() {
+      scanning = false;
+      if (scanLoop) { cancelAnimationFrame(scanLoop); scanLoop = null; }
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        videoStream = null;
+      }
+      torchOn = false;
+      document.getElementById('torch-btn').classList.remove('active');
+      document.getElementById('camera-section').classList.remove('active');
+      document.getElementById('scan-section').style.display = 'block';
+    }
+
+    async function toggleTorch() {
+      if (!videoStream) return;
+      const track = videoStream.getVideoTracks()[0];
+      try {
+        torchOn = !torchOn;
+        await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+        document.getElementById('torch-btn').classList.toggle('active', torchOn);
+        document.getElementById('torch-btn').textContent = torchOn ? '🔦' : '💡';
+      } catch(e) { showToast('Lanterna não disponível'); torchOn = false; }
+    }
+
+    async function flipCamera() {
+      if (allVideoDevices.length < 2) return;
+      currentDeviceIdx = (currentDeviceIdx + 1) % allVideoDevices.length;
+      const dev = allVideoDevices[currentDeviceIdx];
+      setCamStatus('🔄 Trocando câmera...');
+      scanning = false;
+      if (scanLoop) { cancelAnimationFrame(scanLoop); scanLoop = null; }
+      await openCamera(dev.deviceId);
+    }
+
+    // ── MANUAL INPUT ───────────────────────────────────────────
+    function manualSearch() {
+      const code = document.getElementById('manual-code').value.trim();
+      if (!code || code.length < 4) {
+        showToast('Digite um código válido');
+        return;
+      }
+      handleCode(code);
+    }
+
+    document.getElementById('manual-code').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') manualSearch();
+    });
+
+    // ── CÓDIGO DO PRODUTO (sem pesquisa de informações) ────────
+    function handleCode(code) {
+      currentCode = code;
+      selectedOption = 0;
+
+      document.getElementById('scan-section').style.display = 'none';
+      document.getElementById('product-section').classList.add('active');
+      document.getElementById('code-big').textContent = code;
+      document.getElementById('options-card').style.display = 'block';
+      document.getElementById('send-section').style.display = 'flex';
+
+      resetOptions();
+      window.scrollTo(0, 0);
+    }
+
+    // Copia o código de barras para a área de transferência
+    async function copiarCodigo() {
+      const code = currentCode;
+      if (!code) return;
+      let copiado = false;
+      try {
+        await navigator.clipboard.writeText(code);
+        copiado = true;
+      } catch (e) {
+        // Alternativa para navegadores sem a API de área de transferência
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = code;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          copiado = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (e2) {}
+      }
+      showToast(copiado ? '📋 Código copiado' : 'Não foi possível copiar. Segure no número para selecionar', 2500);
+    }
+
+    // ── NOME DE USUÁRIO ────────────────────────────────────────
+    const NOME_KEY = 'etiquetafacil_nome';
+    const FILA_KEY = 'etiquetafacil_fila';
+    // Endereço do servidor que guarda os formulários (mesmo site do Netlify)
+    const API_ENVIAR = '/api/enviar';
+    const SETUP_URL = '/downloads/EtiquetaFacil-Receptor-Setup.exe';
+
+    function getNome() {
+      try { return (localStorage.getItem(NOME_KEY) || '').trim(); } catch (e) { return ''; }
+    }
+    function limparNome(v) { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 30); }
+    function gravarNome(n) {
+      try { localStorage.setItem(NOME_KEY, n); return true; } catch (e) { return false; }
+    }
+
+    function salvarNomeInicial() {
+      const n = limparNome(document.getElementById('nome-inicial').value);
+      if (n.length < 2) { showToast('Digite seu nome (mínimo 2 letras)', 2500); document.getElementById('nome-inicial').focus(); return; }
+      if (!gravarNome(n)) { showToast('Não foi possível salvar o nome neste aparelho', 3500); return; }
+      document.getElementById('nome-modal').classList.remove('show');
+      showToast('✅ Bem-vindo, ' + n, 2500);
+    }
+    document.getElementById('nome-inicial').addEventListener('keydown', e => { if (e.key === 'Enter') salvarNomeInicial(); });
+    if (getNome()) document.getElementById('nome-modal').classList.remove('show');
+    else setTimeout(() => document.getElementById('nome-inicial').focus(), 200);
+
+    function openConfig() {
+      document.getElementById('cfg-nome').value = getNome();
+      document.getElementById('cfg-status').textContent = getNome() ? 'Nome atual: ' + getNome() : '';
+      atualizarAjudaInstalar();
+      document.getElementById('config-modal').classList.add('show');
+    }
+    function closeConfig() { document.getElementById('config-modal').classList.remove('show'); }
+
+    function saveConfig() {
+      const n = limparNome(document.getElementById('cfg-nome').value);
+      if (n.length < 2) { showToast('Digite seu nome (mínimo 2 letras)', 2500); return; }
+      if (!gravarNome(n)) { showToast('Não foi possível salvar o nome neste aparelho', 3500); return; }
+      closeConfig();
+      showToast('✅ Nome salvo: ' + n, 2500);
+    }
+    document.getElementById('cfg-nome').addEventListener('keydown', e => { if (e.key === 'Enter') saveConfig(); });
+
+    function ehIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+    function jaInstalado() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+    function atualizarAjudaInstalar() {
+      const el = document.getElementById('cfg-instalar-ajuda');
+      if (jaInstalado()) el.textContent = '✅ O app já está instalado neste aparelho.';
+      else if (ehIOS()) el.textContent = 'iPhone: toque em Compartilhar (□↑) e depois em "Adicionar à Tela de Início".';
+      else if (!deferredPrompt) el.textContent = 'Se nada acontecer, abra o menu do navegador (⋮) e escolha "Instalar app".';
+      else el.textContent = '';
+    }
+    function baixarSetup() {
+      const a = document.createElement('a');
+      a.href = SETUP_URL; a.download = 'EtiquetaFacil-Receptor-Setup.exe';
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast('Baixando o instalador para Windows…', 3000);
+    }
+
+    // ── FOTO DO PRODUTO (reduzida antes de enviar) ─────────────
+    let fotoData = '';
+    const FOTO_MAX_LADO = 900;     // maior lado da imagem, em pixels
+    const FOTO_MAX_BYTES = 130000; // alvo de peso (~130 KB) — leve para o servidor e ainda dá para identificar o produto
+
+    function reduzirImagem(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let w = img.naturalWidth, h = img.naturalHeight;
+            const k = Math.min(1, FOTO_MAX_LADO / Math.max(w, h));
+            w = Math.round(w * k); h = Math.round(h * k);
+            const c = document.createElement('canvas'); c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            let q = 0.72, out = c.toDataURL('image/jpeg', q);
+            while (out.length * 0.75 > FOTO_MAX_BYTES && q > 0.35) { q -= 0.07; out = c.toDataURL('image/jpeg', q); }
+            // ainda grande? reduz as dimensões
+            let esc = 1;
+            while (out.length * 0.75 > FOTO_MAX_BYTES * 1.4 && esc > 0.5) {
+              esc -= 0.15; c.width = Math.round(w * esc); c.height = Math.round(h * esc);
+              ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+              ctx.drawImage(img, 0, 0, c.width, c.height);
+              out = c.toDataURL('image/jpeg', 0.6);
+            }
+            resolve(out);
+          } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem inválida')); };
+        img.src = url;
+      });
+    }
+    async function fotoEscolhida(input) {
+      const f = input.files && input.files[0]; input.value = '';
+      if (!f) return;
+      try {
+        fotoData = await reduzirImagem(f);
+        document.getElementById('foto-img').src = fotoData;
+        document.getElementById('foto-kb').textContent = '📷 Foto pronta • ' + Math.round(fotoData.length * 0.75 / 1024) + ' KB';
+        document.getElementById('foto-prev').style.display = 'flex';
+        document.getElementById('btn-foto').textContent = '📷 Trocar foto';
+      } catch (e) { showToast('Não consegui usar essa foto. Tente de novo', 3000); }
+    }
+    function removerFoto() {
+      fotoData = '';
+      document.getElementById('foto-prev').style.display = 'none';
+      document.getElementById('foto-img').removeAttribute('src');
+      document.getElementById('btn-foto').textContent = '📷 Tirar foto do produto (opcional)';
+    }
+
+    // ── ENVIO DO FORMULÁRIO (com fila offline) ─────────────────
+    function lerFila() { try { return JSON.parse(localStorage.getItem(FILA_KEY) || '[]'); } catch (e) { return []; } }
+    function gravarFila(f) {
+      try { localStorage.setItem(FILA_KEY, JSON.stringify(f)); }
+      catch (e) {
+        // sem espaço: guarda sem as fotos para não perder o formulário
+        try { localStorage.setItem(FILA_KEY, JSON.stringify(f.map(x => ({ ...x, foto: '' })))); } catch (e2) {}
+      }
+      atualizarAvisoFila();
+    }
+    function atualizarAvisoFila() {
+      const n = lerFila().length, el = document.getElementById('fila-aviso');
+      if (!el) return;
+      el.style.display = n ? 'block' : 'none';
+      el.textContent = n ? `⏳ ${n} formulário(s) aguardando internet para enviar` : '';
+    }
+    async function postarForm(f) {
+      const r = await fetch(API_ENVIAR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
+      if (!r.ok) {
+        const permanente = r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429;
+        const e = new Error('HTTP ' + r.status); e.permanente = permanente; throw e;
+      }
+    }
+    let enviandoFila = false;
+    async function esvaziarFila() {
+      if (enviandoFila) return; enviandoFila = true;
+      try {
+        let fila = lerFila();
+        while (fila.length) {
+          try { await postarForm(fila[0]); fila.shift(); gravarFila(fila); }
+          catch (e) { if (e.permanente) { fila.shift(); gravarFila(fila); } else break; }
+        }
+      } finally { enviandoFila = false; }
+    }
+    window.addEventListener('online', esvaziarFila);
+    setInterval(esvaziarFila, 30000);
+    setTimeout(() => { atualizarAvisoFila(); esvaziarFila(); }, 1500);
+
+// ── BUSCA POR VOZ (segurar para falar, soltar para buscar) ─
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // Palavras que o reconhecimento de voz pode devolver em vez de dígitos (sem acento)
+    const NUMEROS_FALADOS = {
+      zero: '0', um: '1', uma: '1', dois: '2', duas: '2', tres: '3',
+      quatro: '4', cinco: '5', seis: '6', meia: '6', sete: '7', oito: '8', nove: '9'
+    };
+
+    let recog = null;          // sessão de reconhecimento atual
+    let voiceHolding = false;  // botão está sendo segurado
+    let voiceFinalized = true; // já processou o resultado desta tentativa
+    let voiceBase = '';        // dígitos acumulados de sessões anteriores (durante o mesmo toque)
+    let voiceSessao = '';      // dígitos da sessão em andamento
+    let voiceErroFatal = false;
+    let voiceTimerFim = null;
+
+    // Converte "sete oito nove 1 2" / "789 12" / "7.891" em apenas dígitos
+    function falaParaDigitos(texto) {
+      const limpo = String(texto || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      let out = '';
+      limpo.split(/[^a-z0-9]+/).forEach(tok => {
+        if (!tok) return;
+        if (/^\d+$/.test(tok)) out += tok;
+        else if (NUMEROS_FALADOS[tok] !== undefined) out += NUMEROS_FALADOS[tok];
+      });
+      return out;
+    }
+
+    // Quantidades de dígitos aceitas como código de barras (ex.: 78947467, 40232714924, 7891080400087).
+    // Para aceitar outro tamanho, é só incluir o número nesta lista.
+    const TAMANHOS_CODIGO = [8, 11, 12, 13, 14];
+
+    function isCodigoBarras(code) {
+      return /^\d+$/.test(code) && TAMANHOS_CODIGO.includes(code.length);
+    }
+
+    function setVoiceUI(ouvindo) {
+      document.getElementById('btn-voice').classList.toggle('listening', ouvindo);
+      const hint = document.getElementById('voice-hint');
+      hint.classList.toggle('listening', ouvindo);
+      hint.textContent = ouvindo
+        ? '🎙️ Ouvindo... fale os números e solte o botão'
+        : '🎤 Segure o botão, fale os números do código e solte';
+    }
+
+    function atualizarCampoVoz() {
+      document.getElementById('manual-code').value = (voiceBase + voiceSessao).slice(0, 20);
+    }
+
+    function voiceIniciarSessao() {
+      const r = new SpeechRec();
+      recog = r;
+      r.lang = 'pt-BR';
+      r.continuous = false;      // evita o bug de texto repetido do Chrome Android; reiniciamos enquanto segura
+      r.interimResults = true;   // mostra os números aparecendo enquanto fala
+      r.maxAlternatives = 1;
+      voiceSessao = '';
+
+      r.onresult = (e) => {
+        if (r !== recog) return;
+        let txt = '';
+        for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript + ' ';
+        voiceSessao = falaParaDigitos(txt);
+        atualizarCampoVoz();
+      };
+
+      r.onerror = (e) => {
+        if (r !== recog) return;
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          voiceErroFatal = true;
+          showToast('Permita o uso do microfone no navegador', 3500);
+        } else if (e.error === 'network') {
+          voiceErroFatal = true;
+          showToast('Sem internet: a busca por voz precisa de conexão', 3500);
+        }
+        // 'no-speech' e 'aborted' são normais: o onend decide se reinicia
+      };
+
+      r.onend = () => {
+        if (r !== recog) return;
+        voiceBase += voiceSessao;
+        voiceSessao = '';
+        // Ainda segurando o botão: o navegador encerrou por pausa, então escuta de novo
+        if (voiceHolding && !voiceErroFatal) {
+          setTimeout(() => { if (voiceHolding && !voiceErroFatal) voiceIniciarSessao(); }, 120);
+          return;
+        }
+        voiceFinalizar();
+      };
+
+      try {
+        r.start();
+      } catch (e) {
+        voiceErroFatal = true;
+        showToast('Não foi possível iniciar a busca por voz', 3000);
+        voiceFinalizar();
+      }
+    }
+
+    function voiceIniciar(ev) {
+      ev.preventDefault();
+      if (!SpeechRec) {
+        showToast('Busca por voz não funciona neste navegador. Use o Chrome', 3500);
+        return;
+      }
+      if (voiceHolding) return;
+      voiceHolding = true;
+      voiceFinalized = false;
+      voiceErroFatal = false;
+      voiceBase = '';
+      voiceSessao = '';
+      document.getElementById('manual-code').value = '';
+      setVoiceUI(true);
+      try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (e) {}
+      voiceIniciarSessao();
+    }
+
+    function voiceSoltar() {
+      if (!voiceHolding) return;
+      voiceHolding = false;
+      setVoiceUI(false);
+      try { if (recog) recog.stop(); } catch (e) {}
+      // Segurança: se o navegador não avisar o fim, processa mesmo assim
+      clearTimeout(voiceTimerFim);
+      voiceTimerFim = setTimeout(voiceFinalizar, 1800);
+    }
+
+    function voiceFinalizar() {
+      if (voiceFinalized) return;
+      voiceFinalized = true;
+      clearTimeout(voiceTimerFim);
+      voiceHolding = false;
+      setVoiceUI(false);
+      const code = (voiceBase + voiceSessao).slice(0, 20);
+      voiceBase = '';
+      voiceSessao = '';
+      recog = null; // ignora eventos atrasados da sessão antiga
+      document.getElementById('manual-code').value = code;
+
+      if (voiceErroFatal) return;
+      if (!code) {
+        showToast('Não entendi nenhum número. Segure e fale de novo', 3000);
+        return;
+      }
+      if (isCodigoBarras(code)) {
+        // Quantidade de dígitos correta: avança para a próxima tela ao soltar o botão, como se a câmera tivesse lido
+        if (navigator.vibrate) navigator.vibrate([60, 30, 60]);
+        handleCode(code);
+      } else {
+        showToast(`${code.length} dígitos: um código de barras tem 8, 11, 12, 13 ou 14. Fale de novo ou corrija e toque em Buscar`, 4500);
+      }
+    }
+
+    // Cancela qualquer escuta em andamento (usado ao voltar para a tela principal)
+    function voiceAbortar() {
+      voiceHolding = false;
+      voiceFinalized = true;
+      voiceBase = '';
+      voiceSessao = '';
+      clearTimeout(voiceTimerFim);
+      const r = recog;
+      recog = null;
+      try { if (r) r.abort(); } catch (e) {}
+      setVoiceUI(false);
+    }
+
+    const btnVoz = document.getElementById('btn-voice');
+    btnVoz.addEventListener('pointerdown', voiceIniciar);
+    btnVoz.addEventListener('pointerup', voiceSoltar);
+    btnVoz.addEventListener('pointercancel', voiceSoltar);
+    btnVoz.addEventListener('contextmenu', (e) => e.preventDefault()); // evita menu de "segurar" no celular
+    document.addEventListener('visibilitychange', () => { if (document.hidden) voiceSoltar(); });
+
+    // ── CUSTO / VALORES ────────────────────────────────────────
+    // Aceita "2,50", "2.50", "R$ 1.234,56" etc. Devolve NaN se não houver número
+    function parseMoney(s) {
+      let t = String(s || '').trim().replace(/[^\d.,]/g, '');
+      if (!t) return NaN;
+      if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+      else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+      return parseFloat(t);
+    }
+
+    function formatarReais(n) {
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    // ── OPÇÕES ─────────────────────────────────────────────────
+    // Opções com preço: 1, 2, 4, 5. Opções com observações: 3, 4, 5. Opções com custo obrigatório: 4, 5.
+    const OPTS_WITH_PRICE = [1, 2, 4, 5];
+    const OPTS_WITH_NOTES = [3, 4, 5];
+    const OPTS_WITH_CUSTO = [4, 5];
+
+    function selectOption(num) {
+      const jaSelecionada = selectedOption === num;
+      selectedOption = num;
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`opt-${i}`).classList.toggle('selected', i === num);
+      }
+      // Foca no preço só quando a opção acabou de ser selecionada
+      if (!jaSelecionada && OPTS_WITH_PRICE.includes(num)) {
+        setTimeout(() => {
+          if (document.activeElement === document.body) {
+            document.getElementById(`price-${num}`).focus();
+          }
+        }, 150);
+      }
+      atualizarTravaEnvio();
+    }
+
+    function resetOptions() {
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`opt-${i}`).classList.remove('selected');
+        if (OPTS_WITH_PRICE.includes(i)) document.getElementById(`price-${i}`).value = '';
+        if (OPTS_WITH_NOTES.includes(i)) document.getElementById(`notes-${i}`).value = '';
+        if (OPTS_WITH_CUSTO.includes(i)) {
+          const c = document.getElementById(`custo-${i}`);
+          c.value = '';
+          c.classList.remove('erro');
+        }
+      }
+      selectedOption = 0;
+      atualizarTravaEnvio();
+    }
+
+    // O custo só é exigido nas opções 4 e 5
+    function custoPreenchido() {
+      if (!OPTS_WITH_CUSTO.includes(selectedOption)) return true;
+      return parseMoney(document.getElementById(`custo-${selectedOption}`).value) > 0;
+    }
+
+    // Trava o botão de enviar enquanto o custo obrigatório estiver vazio
+    function atualizarTravaEnvio() {
+      const travado = !custoPreenchido();
+      const btn = document.getElementById('btn-send');
+      btn.classList.toggle('locked', travado);
+      btn.setAttribute('aria-disabled', travado ? 'true' : 'false');
+      document.getElementById('send-hint').style.display = travado ? 'block' : 'none';
+    }
+
+    function avisarCustoObrigatorio() {
+      showToast('⚠️ Precisa digitar o custo do produto', 3500);
+      const campo = document.getElementById(`custo-${selectedOption}`);
+      campo.classList.remove('erro');
+      void campo.offsetWidth; // reinicia a animação de tremer
+      campo.classList.add('erro');
+      campo.focus();
+      try { campo.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    }
+
+    // ── ENVIO ───────────────────────────────────────────────
+    async function enviarFormulario() {
+      if (!selectedOption) {
+        showToast('Selecione o que precisa fazer');
+        return;
+      }
+
+      const nome = getNome();
+      if (!nome) { document.getElementById('nome-modal').classList.add('show'); return; }
+
+      const needsPrice = OPTS_WITH_PRICE.includes(selectedOption);
+      let price = '';
+
+      if (needsPrice) {
+        const priceVal = document.getElementById(`price-${selectedOption}`).value;
+        if (!priceVal || parseFloat(priceVal) <= 0) {
+          showToast('Digite o preço antes de enviar');
+          document.getElementById(`price-${selectedOption}`).focus();
+          return;
+        }
+        price = formatarReais(parseFloat(priceVal));
+      }
+
+      // Custo obrigatório em "Cadastrar produto" e "Cadastrar produto + etiqueta"
+      let custo = '';
+      if (OPTS_WITH_CUSTO.includes(selectedOption)) {
+        const valorCusto = parseMoney(document.getElementById(`custo-${selectedOption}`).value);
+        if (!(valorCusto > 0)) {
+          avisarCustoObrigatorio();
+          return;
+        }
+        custo = formatarReais(valorCusto);
+      }
+
+      const optLabels = {
+        1: '💰 MUDAR PREÇO',
+        2: '🏷️ MUDAR PREÇO + TIRAR ETIQUETA',
+        3: '🖨️ TIRAR ETIQUETA',
+        4: '➕ CADASTRAR PRODUTO',
+        5: '🏷️➕ CADASTRAR PRODUTO + ETIQUETA'
+      };
+
+      const notes = OPTS_WITH_NOTES.includes(selectedOption)
+        ? document.getElementById(`notes-${selectedOption}`).value.trim()
+        : '';
+
+      const form = {
+        id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2)),
+        enviadoEm: new Date().toISOString(),
+        usuario: nome,
+        codigo: currentCode,
+        acao: selectedOption,
+        acaoTexto: optLabels[selectedOption],
+        preco: price,
+        custo: custo,
+        obs: notes,
+        foto: fotoData
+      };
+
+      const btn = document.getElementById('btn-send');
+      if (btn.dataset.busy) return;
+      btn.dataset.busy = '1';
+      document.getElementById('btn-send-txt').textContent = 'Enviando…';
+      try {
+        await postarForm(form);
+        showToast('✅ Formulário enviado', 2500);
+      } catch (e) {
+        if (e.permanente) {
+          showToast('❌ O servidor recusou o formulário (' + e.message + ')', 4000);
+          btn.dataset.busy = ''; document.getElementById('btn-send-txt').textContent = 'Enviar formulário';
+          return;
+        }
+        const fila = lerFila(); fila.push(form); gravarFila(fila);
+        showToast('📴 Sem conexão: guardado, envia sozinho quando voltar a internet', 4500);
+      }
+      btn.dataset.busy = ''; document.getElementById('btn-send-txt').textContent = 'Enviar formulário';
+      resetAll();
+    }
+
+// ── RESET (volta para a tela principal) ────────────────────
+    function resetAll() {
+      voiceAbortar();
+      removerFoto();
+      currentCode = '';
+      selectedOption = 0;
+      document.getElementById('code-big').textContent = '—';
+      document.getElementById('manual-code').value = '';
+      document.getElementById('product-section').classList.remove('active');
+      document.getElementById('product-section').style.display = '';
+      document.getElementById('scan-section').style.display = 'block';
+      resetOptions();
+      window.scrollTo(0, 0);
+    }
+
+    // ── TOAST ──────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, ms) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), ms || 2500);
+    }
+  </script>
+<script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js")}</script>
+</body>
+</html>
