@@ -15,7 +15,7 @@ exports.handler = async (event) => {
   const chaveEsperada = process.env.CHAVE_RECEPTOR;
   if (chaveEsperada && (event.headers['x-chave'] || '') !== chaveEsperada) return json(401, { erro: 'chave inválida' });
 
-  const s = store();
+  const s = store(event);
   if (event.httpMethod === 'GET') {
     const { blobs } = await s.list();
     const chaves = blobs.map(b => b.key).sort();

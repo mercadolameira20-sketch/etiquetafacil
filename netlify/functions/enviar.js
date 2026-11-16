@@ -47,6 +47,6 @@ exports.handler = async (event) => {
   if (!f) return json(400, { erro: 'formulário inválido' });
   // chave ordenável por data: o receptor lê na ordem em que chegaram
   const chave = `${f.recebidoEm}_${f.id}`;
-  await store().setJSON(chave, f);
+  await store(event).setJSON(chave, f);
   return json(200, { ok: true, id: f.id });
 };
