@@ -5,6 +5,6 @@ const { getStore, connectLambda } = require('@netlify/blobs');
 // Netlify Blobs receber o site e o token automaticamente.
 function store(event) {
   if (event && typeof connectLambda === 'function') connectLambda(event);
-  return getStore({ name: 'formularios', consistency: 'strong' });
+  return getStore({ name: 'formularios' });
 }
 module.exports = { store };
